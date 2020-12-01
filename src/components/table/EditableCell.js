@@ -1,6 +1,7 @@
 import { DatePicker, Form, Input, InputNumber, Select, TimePicker } from 'antd';
-import React from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import moment from 'moment';
+import { EditableContext } from './EditableRow';
 
 const EditableCell = ({
   title,
@@ -8,11 +9,30 @@ const EditableCell = ({
   children,
   dataIndex,
   record,
-  editing,
+  editable,
+  handleChange,
   ...restProps
 }) => {
   const dateFormat = 'YYYY-MM-DD';
   const timeFormat = 'HH:mm:ss';
+  const form = useContext(EditableContext);
+  const inputRef = useRef();
+  const [editing, setEditing] = useState(false);
+
+  const toggleEdit = () => {
+    setEditing(!editing);
+    // eslint-disable-next-line no-param-reassign
+    record.rowStatus = 'U';
+    form.setFieldsValue({
+      [dataIndex]: record[dataIndex],
+    });
+  };
+
+  useEffect(() => {
+    if (editing && type === 'text') {
+      inputRef.current.focus();
+    }
+  }, [editing]);
 
   const dateChange = (_, dateString) => {
     // eslint-disable-next-line no-param-reassign
@@ -25,33 +45,61 @@ const EditableCell = ({
     record.regtime = timeString;
   };
 
+  const onChange = async () => {
+    try {
+      const values = await form.validateFields();
+      toggleEdit();
+      handleChange({ ...record, ...values });
+    } catch (errInfo) {
+      console.log('Change failed:', errInfo);
+    }
+  };
+
   let childNode = children;
 
-  if (editing && type === 'date') {
+  if (editable && type === 'date') {
     childNode = editing ? (
       <DatePicker
         defaultValue={moment(record[dataIndex], dateFormat)}
         format={dateFormat}
         onChange={dateChange}
+        onBlur={onChange}
       />
     ) : (
-      children
+      <div
+        className="editable-cell-value-wrap"
+        style={{
+          paddingRight: 24,
+        }}
+        onClick={toggleEdit}
+      >
+        {children}
+      </div>
     );
   }
 
-  if (editing && type === 'time') {
+  if (editable && type === 'time') {
     childNode = editing ? (
       <TimePicker
         value={moment(record[dataIndex], timeFormat)}
         format={timeFormat}
         onChange={timeChange}
+        onBlur={onChange}
       />
     ) : (
-      children
+      <div
+        className="editable-cell-value-wrap"
+        style={{
+          paddingRight: 24,
+        }}
+        onClick={toggleEdit}
+      >
+        {children}
+      </div>
     );
   }
 
-  if (editing && type === 'text') {
+  if (editable && type === 'text') {
     childNode = editing ? (
       <Form.Item
         style={{ margin: 0 }}
@@ -63,14 +111,22 @@ const EditableCell = ({
           },
         ]}
       >
-        <Input />
+        <Input onBlur={onChange} ref={inputRef} />
       </Form.Item>
     ) : (
-      children
+      <div
+        className="editable-cell-value-wrap"
+        style={{
+          paddingRight: 24,
+        }}
+        onClick={toggleEdit}
+      >
+        {children}
+      </div>
     );
   }
 
-  if (editing && type === 'number') {
+  if (editable && type === 'number') {
     childNode = editing ? (
       <Form.Item
         style={{ margin: 0 }}
@@ -82,17 +138,25 @@ const EditableCell = ({
           },
         ]}
       >
-        <InputNumber />
+        <InputNumber onBlur={onChange} />
       </Form.Item>
     ) : (
-      children
+      <div
+        className="editable-cell-value-wrap"
+        style={{
+          paddingRight: 24,
+        }}
+        onClick={toggleEdit}
+      >
+        {children}
+      </div>
     );
   }
 
-  if (editing && type === 'select') {
+  if (editable && type === 'select') {
     childNode = editing ? (
       <Form.Item style={{ margin: 0 }} name={dataIndex}>
-        <Select style={{ width: 150 }}>
+        <Select style={{ width: 150 }} onBlur={onChange}>
           {[...Array(11).keys()]
             .filter(x => x > 0)
             .map(c => `Product ${c}`)
@@ -105,7 +169,15 @@ const EditableCell = ({
         </Select>
       </Form.Item>
     ) : (
-      children
+      <div
+        className="editable-cell-value-wrap"
+        style={{
+          paddingRight: 24,
+        }}
+        onClick={toggleEdit}
+      >
+        {children}
+      </div>
     );
   }
   return <td {...restProps}>{childNode}</td>;
